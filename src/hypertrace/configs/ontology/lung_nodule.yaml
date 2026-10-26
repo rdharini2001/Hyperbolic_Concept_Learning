@@ -1,0 +1,342 @@
+# Pulmonary-nodule concept ontology, v3. Dataset-independent: clinical vocabulary only, no label rules.
+#
+# A dataset supplies labels for a subset of these nodes in a separate mapping file
+# (configs/labels/<dataset>.yaml). Nodes a dataset cannot label stay in the tree UNSCORED: they
+# are still embedded and shaped by the hierarchy loss, and another dataset can score them later.
+#
+# Sources for the vocabulary and structure (verify against the current documents before citing):
+#   - ACR Lung-RADS v2022 (Christensen et al., Radiology 2024; acr.org/Lung-RADS): nodule type,
+#     size thresholds on the mean diameter (one decimal), solid-component thresholds for part-solid
+#     nodules, benign features (category 1), juxtapleural / perifissural and airway nodules,
+#     atypical pulmonary cysts, category 4X additional features (spiculation).
+#   - Fleischner Society 2017 guidelines (MacMahon et al., Radiology 2017): solid / subsolid nodules,
+#     upper-lobe location and spiculation as risk factors.
+#   - Fleischner Society glossary of terms for thoracic imaging, 2024 update (Bankier et al.,
+#     Radiology 2024): descriptor names (display fields).
+#
+# Per node:
+#   name       stable identifier (used in configs, metrics and figures; never change it)
+#   parent     tree edge (the hierarchy the entailment cones and hierarchy metrics use)
+#   display    the clinical term shown in figures and reports
+#   radlex     {id, term}: id = RadLex RID, filled ONLY by `hypertrace-radlex` from an official RadLex
+#              release or BioPortal (exact label/synonym match, reviewed). null = not looked up yet or
+#              no RadLex concept (size bins are thresholds, not RadLex terms). term = labels to look up.
+#   lungrads   how the node enters a Lung-RADS v2022 assessment (free text, for reports and Part 3)
+#   lungrads_feature (group nodes) which Lung-RADS feature the group encodes
+#   exclusive  children are mutually exclusive categories (consistency metric)
+#   ordinal    children are ordered categories, in file order (size bins): ordinal metrics
+#   prompts    text prompts for vision-language encoders (CT-CLIP); optional
+name: lung_nodule_v3
+version: 3.0
+nodes:
+  # ------------------------------------------------------------------ trunk
+  - name: chest
+    parent: null
+    display: chest
+    radlex: {id: RID1243, term: [chest, thorax]}
+    prompts: ["chest CT", "CT of the thorax"]
+  - name: lung
+    parent: chest
+    display: lung
+    radlex: {id: RID1301, term: [lung]}
+    prompts: ["lung", "pulmonary parenchyma"]
+  - name: pulmonary_lesion
+    parent: lung
+    display: pulmonary lesion
+    radlex: {id: null, term: [lesion of lung, lung lesion]}
+    prompts: ["pulmonary lesion", "lesion in the lung"]
+  - name: nodule
+    parent: pulmonary_lesion
+    display: pulmonary nodule
+    radlex: {id: null, term: [pulmonary nodule, nodule]}
+    lungrads: "Unit of assessment; the category follows the most suspicious nodule."
+    prompts: ["pulmonary nodule", "lung nodule"]
+
+  # ------------------------------------------------------------------ size (mean diameter)
+  - name: size
+    parent: nodule
+    exclusive: true
+    ordinal: true
+    display: size (mean diameter)
+    lungrads_feature: size
+    radlex: {id: RID13432, term: [size]}
+    lungrads: "Mean of long and short axis, lung window, one decimal place. Bins = solid-nodule thresholds."
+    prompts: ["nodule size"]
+  - name: size_lt6
+    parent: size
+    display: "< 6 mm"
+    radlex: null
+    lungrads: "Solid, baseline: category 2. Part-solid with total < 6 mm: category 2."
+    prompts: ["tiny pulmonary nodule smaller than 6 mm"]
+  - name: size_6to8
+    parent: size
+    display: "6 to < 8 mm"
+    radlex: null
+    lungrads: "Solid, baseline: category 3."
+    prompts: ["small pulmonary nodule of 6 to 8 mm"]
+  - name: size_8to15
+    parent: size
+    display: "8 to < 15 mm"
+    radlex: null
+    lungrads: "Solid, baseline: category 4A."
+    prompts: ["pulmonary nodule of 8 to 15 mm"]
+  - name: size_ge15
+    parent: size
+    display: "≥ 15 mm"
+    radlex: null
+    lungrads: "Solid, baseline: category 4B."
+    prompts: ["large pulmonary nodule of 15 mm or more"]
+
+  # ------------------------------------------------------------------ nodule type (attenuation)
+  - name: nodule_type
+    parent: nodule
+    exclusive: true
+    display: nodule type
+    lungrads_feature: nodule_type
+    radlex: {id: null, term: [attenuation, density]}
+    lungrads: "Selects the threshold set: solid, part-solid or non-solid (GGN)."
+    prompts: ["nodule attenuation", "nodule type"]
+  - name: type_solid
+    parent: nodule_type
+    display: solid
+    radlex: {id: RID5741, term: [solid nodule, solid]}
+    prompts: ["solid pulmonary nodule", "solid nodule"]
+  - name: type_subsolid
+    parent: nodule_type
+    exclusive: true
+    display: subsolid
+    radlex: {id: null, term: [subsolid nodule, subsolid]}
+    lungrads: "Fleischner umbrella term for part-solid and pure ground-glass nodules."
+    prompts: ["subsolid pulmonary nodule"]
+  - name: type_part_solid
+    parent: type_subsolid
+    display: part-solid
+    radlex: {id: null, term: [part-solid nodule, part solid nodule, mixed attenuation nodule]}
+    lungrads: "Total mean diameter < 6 mm: category 2; >= 6 mm: graded by the solid component."
+    prompts: ["part-solid nodule", "mixed ground-glass and solid nodule"]
+  - name: solid_component
+    parent: type_part_solid
+    exclusive: true
+    ordinal: true
+    display: solid component size
+    lungrads_feature: solid_component
+    radlex: {id: null, term: [solid component]}
+    lungrads: "Part-solid nodules with total >= 6 mm, graded by the mean diameter of the solid component."
+    prompts: ["solid component of a part-solid nodule"]
+  - name: solid_component_lt6
+    parent: solid_component
+    display: "solid component < 6 mm"
+    radlex: null
+    lungrads: "Category 3."
+    prompts: ["part-solid nodule with a small solid component under 6 mm"]
+  - name: solid_component_6to8
+    parent: solid_component
+    display: "solid component 6 to < 8 mm"
+    radlex: null
+    lungrads: "Category 4A."
+    prompts: ["part-solid nodule with a solid component of 6 to 8 mm"]
+  - name: solid_component_ge8
+    parent: solid_component
+    display: "solid component ≥ 8 mm"
+    radlex: null
+    lungrads: "Category 4B."
+    prompts: ["part-solid nodule with a solid component of 8 mm or more"]
+  - name: type_ground_glass
+    parent: type_subsolid
+    display: ground-glass (non-solid)
+    radlex: {id: RID28531, term: [ground-glass nodule, ground glass nodule, nonsolid nodule, ground-glass opacity]}
+    lungrads: "Non-solid (GGN): < 30 mm category 2; >= 30 mm at baseline category 3 (own thresholds, not the size bins)."
+    prompts: ["pure ground-glass nodule", "non-solid ground-glass opacity"]
+
+  # ------------------------------------------------------------------ shape
+  - name: shape
+    parent: nodule
+    exclusive: true
+    display: shape
+    radlex: {id: RID5863, term: [shape]}
+    prompts: ["nodule shape"]
+  - name: shape_round
+    parent: shape
+    display: round
+    radlex: {id: RID5799, term: [round, spherical]}
+    prompts: ["round nodule", "spherical pulmonary nodule"]
+  - name: shape_oval
+    parent: shape
+    display: oval
+    radlex: {id: RID5800, term: [oval, ovoid]}
+    prompts: ["ovoid nodule", "oval pulmonary nodule"]
+  - name: shape_lentiform_triangular
+    parent: shape
+    display: lentiform / triangular
+    radlex: {id: null, term: [lentiform, triangular]}
+    lungrads: "With a smooth margin and pleural or fissural contact, < 10 mm: juxtapleural nodule, category 2."
+    prompts: ["lentiform nodule", "triangular perifissural nodule"]
+  - name: shape_linear
+    parent: shape
+    display: linear
+    radlex: {id: RID5811, term: [linear]}
+    lungrads: "Linear opacities usually represent scar or atelectasis, not nodules."
+    prompts: ["linear opacity", "elongated linear nodule"]
+
+  # ------------------------------------------------------------------ margin (not exclusive)
+  - name: margin
+    parent: nodule
+    display: margin
+    lungrads_feature: additional_feature
+    radlex: {id: RID5972, term: [margin]}
+    prompts: ["nodule margin", "margin of the nodule"]
+  - name: margin_smooth
+    parent: margin
+    display: smooth (well-defined)
+    radlex: {id: null, term: [smooth margin, circumscribed margin, well-defined margin]}
+    prompts: ["nodule with smooth well-defined margin", "sharply marginated nodule"]
+  - name: margin_irregular
+    parent: margin
+    display: irregular (ill-defined)
+    radlex: {id: RID5715, term: [irregular margin, ill-defined margin]}
+    prompts: ["nodule with irregular poorly defined margin", "ill-defined nodule margin"]
+  - name: margin_lobulated
+    parent: margin
+    display: lobulated
+    radlex: {id: RID5711, term: [lobulated margin, lobulated]}
+    prompts: ["lobulated nodule", "nodule with lobulated margin"]
+  - name: margin_spiculated
+    parent: margin
+    display: spiculated
+    radlex: {id: null, term: [spiculated margin, spiculated, spiculation]}
+    lungrads: "Additional suspicious feature: category 3 or 4 nodule becomes 4X."
+    prompts: ["spiculated nodule", "nodule with spiculated margin"]
+
+  # ------------------------------------------------------------------ calcification
+  - name: calcification
+    parent: nodule
+    exclusive: true
+    display: calcification
+    lungrads_feature: benign_feature
+    radlex: {id: RID5196, term: [calcification]}
+    prompts: ["nodule calcification"]
+  - name: calcification_present
+    parent: calcification
+    exclusive: true
+    display: calcified
+    radlex: {id: RID5747, term: [calcified]}
+    prompts: ["calcified nodule", "nodule with calcification"]
+  - name: calcification_benign_pattern
+    parent: calcification_present
+    display: benign calcification pattern
+    radlex: {id: null, term: [benign calcification]}
+    lungrads: "Complete, central, concentric (laminated) or popcorn calcification: category 1."
+    prompts: ["nodule with benign pattern of calcification"]
+  - name: calcification_complete
+    parent: calcification_benign_pattern
+    display: complete (diffuse)
+    radlex: {id: null, term: [diffuse calcification, complete calcification]}
+    prompts: ["completely calcified nodule"]
+  - name: calcification_central
+    parent: calcification_benign_pattern
+    display: central
+    radlex: {id: null, term: [central calcification]}
+    prompts: ["nodule with central calcification"]
+  - name: calcification_concentric
+    parent: calcification_benign_pattern
+    display: concentric (laminated)
+    radlex: {id: null, term: [laminated calcification, concentric calcification]}
+    prompts: ["nodule with laminated concentric calcification"]
+  - name: calcification_popcorn
+    parent: calcification_benign_pattern
+    display: popcorn
+    radlex: {id: RID29213, term: [popcorn calcification]}
+    lungrads: "Benign (hamartoma) pattern; listed in Lung-RADS v1.1; check the v2022 wording."
+    prompts: ["nodule with popcorn calcification"]
+  - name: calcification_eccentric
+    parent: calcification_present
+    display: eccentric / stippled (indeterminate)
+    radlex: {id: null, term: [eccentric calcification, stippled calcification]}
+    lungrads: "Not a benign pattern: assess the nodule by size and type."
+    prompts: ["nodule with eccentric calcification"]
+  - name: calcification_absent
+    parent: calcification
+    display: non-calcified
+    radlex: {id: RID39226, term: [noncalcified, non-calcified]}
+    prompts: ["non-calcified nodule", "nodule without calcification"]
+
+  # ------------------------------------------------------------------ internal features (not exclusive)
+  - name: internal_features
+    parent: nodule
+    display: internal features
+    lungrads_feature: benign_feature
+    radlex: {id: null, term: [internal characteristics]}
+    prompts: ["internal structure of the nodule"]
+  - name: fat_containing
+    parent: internal_features
+    display: fat-containing
+    radlex: {id: null, term: [fat-containing, fat]}
+    lungrads: "Fat-containing nodule: category 1."
+    prompts: ["fat-containing nodule", "nodule with macroscopic fat"]
+  - name: cavitation
+    parent: internal_features
+    display: cavitation
+    radlex: {id: null, term: [cavitation, cavity]}
+    prompts: ["cavitary nodule", "nodule with cavitation"]
+  - name: atypical_cyst
+    parent: internal_features
+    display: atypical pulmonary cyst
+    radlex: {id: RID3890, term: [cyst, lung cyst]}
+    lungrads: "New in v2022: thick-walled or multilocular cysts are category 4A at baseline."
+    prompts: ["atypical pulmonary cyst"]
+  - name: cyst_thick_walled
+    parent: atypical_cyst
+    display: thick-walled cyst
+    radlex: {id: null, term: [thick-walled]}
+    lungrads: "Category 4A at baseline; increasing wall thickness or nodularity: 4B."
+    prompts: ["thick-walled pulmonary cyst"]
+  - name: cyst_multilocular
+    parent: atypical_cyst
+    display: multilocular cyst
+    radlex: {id: RID5891, term: [multilocular]}
+    lungrads: "Category 4A at baseline; growing or increased loculation: 4B."
+    prompts: ["multilocular pulmonary cyst"]
+
+  # ------------------------------------------------------------------ location (not exclusive)
+  - name: location
+    parent: nodule
+    display: location
+    lungrads_feature: location
+    radlex: {id: RID39038, term: [location]}
+    prompts: ["nodule location"]
+  - name: juxtapleural
+    parent: location
+    display: juxtapleural
+    radlex: {id: null, term: [juxtapleural]}
+    lungrads: "Smooth solid oval, lentiform or triangular, < 10 mm mean diameter: category 2."
+    prompts: ["juxtapleural nodule", "nodule abutting the pleura"]
+  - name: perifissural
+    parent: juxtapleural
+    display: perifissural
+    radlex: {id: null, term: [perifissural nodule, perifissural]}
+    lungrads: "Included in the juxtapleural rule (fissural contact)."
+    prompts: ["perifissural nodule", "nodule along the fissure"]
+  - name: airway_nodule
+    parent: location
+    exclusive: true
+    display: airway (endobronchial) nodule
+    radlex: {id: null, term: [endobronchial, airway nodule]}
+    prompts: ["endobronchial nodule", "airway nodule"]
+  - name: airway_segmental_or_proximal
+    parent: airway_nodule
+    display: segmental or more proximal airway
+    radlex: null
+    lungrads: "Baseline: category 4A; stable or growing: 4B."
+    prompts: ["nodule in a segmental or central airway"]
+  - name: airway_subsegmental
+    parent: airway_nodule
+    display: subsegmental airway
+    radlex: null
+    lungrads: "Category 2."
+    prompts: ["nodule in a subsegmental airway"]
+  - name: upper_lobe
+    parent: location
+    display: upper lobe
+    radlex: {id: RID34695, term: [upper lobe of lung, upper lobe]}
+    lungrads: "Not a Lung-RADS criterion; a malignancy risk factor in Fleischner 2017 and the Brock model."
+    prompts: ["upper lobe nodule"]

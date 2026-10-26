@@ -1,0 +1,140 @@
+# hypertrace-train --config <this file> [--set key=value ...]
+#
+# Trains the concept space for ONE (geometry, fold, seed) on cached CT-CLIP readouts.
+# Experiment variants live in experiments/*.yaml and inherit from this file via `base:`.
+# ${VAR:-default} = environment variable (set in scripts/env.sh) with a fallback.
+
+experiment: main          # first part of the run name; experiment files change it
+tag: null                 # optional run-name suffix (_t<tag>) so variants (tuning) never share a run folder
+seed: 0
+
+paths:
+  manifest: ${HT_DATA_ROOT:-./data}/manifest_folds.csv
+  cache_dir: ${HT_CACHE_ROOT:-./cache}/ctclip_crop64       # output of hypertrace-extract (run_local.sh: HT_CACHE_DIR)
+  output_root: ${HT_OUTPUT_ROOT:-./outputs}               # runs go to <output_root>/runs/<run name>/
+
+concepts_file: labels/lidc.yaml     # v3: LIDC labels on ontology/lung_nodule.yaml (relative to this file);
+                                    # v2 tree: concepts/lidc.yaml (experiments/tree_v2.yaml), v1: concepts/lidc_v1.yaml
+
+data:
+  test_fold: 0
+  n_folds: 5                # test = test_fold, val = next fold, train = the rest (patient-level)
+  image_feature: token_mean # CT-CLIP caches: token_mean | masked_latent | global_latent (no grounding);
+                            # lesion-encoder caches (fmcib): lesion_embedding
+  standardize: true         # z-score features with training-split statistics (not for L2-normalised CLIP latents)
+  binary_threshold: 0.5     # soft >= 0.5  <=>  reader-mean >= 3 on a 1-5 scale (metrics only)
+  reader_column_pattern: "{attribute}_r{reader}"
+  batch_size: 64
+  min_occupancy: 1.0e-3     # drop nodules whose mask covered no encoder token
+  pca_dim: null             # null = use all features; int = project onto the top-k principal axes of the
+                            # TRAINING split (after standardize): fewer weights for 4,096-d inputs
+
+geometry:
+  name: poincare            # poincare | euclidean | sphere | kstereo (learned curvature) | product (one factor
+                            # per concept group, see `product`); only the selected block(s) are used
+  poincare:
+    curvature: 1.0          # ball curvature is -c
+    learn_curvature: false
+    curvature_bounds: [0.1, 10.0]
+    cone_k: 0.1             # entailment-cone width (Ganea et al., 2018)
+  euclidean:
+    cone_k: 0.1
+  sphere:                   # κ-stereographic model with fixed κ > 0 (sphere of radius 1/sqrt(κ))
+    curvature: 1.0
+    cone_k: 0.1             # cones are only formal on the sphere (product factors skip them, see below)
+  kstereo:                  # κ-stereographic model, any sign: κ < 0 ball, 0 flat, > 0 sphere
+    curvature: 0.0          # start flat
+    learn_curvature: true   # the sign it ends with is the result
+    curvature_bounds: [-4.0, 4.0]
+    cone_k: 0.1
+  product:                  # geometry.name=product: one factor per concept group (models/product.py)
+    assignment: matched     # which table below (part of the run name: product-matched, ...)
+    cones_on_sphere: false  # hierarchy / lesion-entailment cones in sphere factors
+    embed_unscored_groups: false   # groups without any scored concept (no supervision for the lesion)
+    min_factor_dim: 1       # model.projector.embed_dim is the TOTAL, split equally across factors
+    assignments:            # {group: geometry}; '*' = every other group. Groups = children of the trunk.
+      matched:              # the hypothesis: each group in the geometry that fits its structure
+        size: euclidean            # ordered bins
+        nodule_type: poincare      # hierarchy: subsolid -> part-solid -> solid-component bins
+        shape: sphere              # flat, mutually exclusive categories
+        margin: euclidean          # four separate ordinal ratings
+        calcification: poincare    # hierarchy: calcified -> benign pattern -> pattern
+        internal_features: poincare
+        location: poincare
+      matched_no_sphere:    # isolates the sphere hypothesis (the least established one)
+        nodule_type: poincare
+        calcification: poincare
+        internal_features: poincare
+        location: poincare
+        "*": euclidean
+      swapped:              # control: every group in a geometry that does NOT fit its structure
+        size: sphere
+        nodule_type: euclidean
+        shape: poincare
+        margin: poincare
+        calcification: sphere
+        internal_features: euclidean
+        location: euclidean
+      all_euclidean: {"*": euclidean}   # factorisation alone, no curvature
+      all_poincare: {"*": poincare}
+      all_sphere: {"*": sphere}
+      learned: {"*": kstereo}           # each factor learns its curvature from κ = 0
+
+model:
+  projector:
+    embed_dim: 64           # concept-space dimension (dimension sweep: run_local.sh DIMS="2 4 8 16 32 64")
+    image_hidden_dim: null  # null = linear map; int = 2-layer MLP
+    dropout: 0.0            # inside the MLP (image_hidden_dim) only
+    input_dropout: 0.0      # dropout on the input features before the projection (regulariser)
+    share_projection: false # v1 only: one linear map for image and text (concepts.mode=text, masked_latent)
+    clip_r:                 # tangent-norm cap per geometry. Poincaré: keeps lesions off the ball boundary.
+      poincare: 2.0         # Euclidean: no boundary, so no cap (a cap of 2.0 pinned every lesion to a
+      euclidean: null       # ring at d = 2). A single number applies to every geometry.
+      sphere: null          # the sphere caps itself short of the antipode
+      kstereo: 2.0          # a learned κ may turn negative (ball boundary)
+    unit_norm_inputs: false # rescale L2-normalised CLIP latents by sqrt(d_in) (v1); off when standardize=true
+  concepts:
+    mode: free              # free: every tree node is its own point in the space | text: v1 (text-anchored)
+    param: riemannian       # riemannian: the parameter is the point on the ball, Riemannian Adam
+                            # tangent: a tangent vector at 0 mapped by exp_0, plain AdamW (ablation)
+    init: tree              # tree: radius from tree depth, children near their parent | text: prompt PCA
+    init_spread: 0.5        # (tree init) how far children start from their parent's direction
+    init_max_radius: 2.0    # tangent radius of the deepest nodes (tanh(2) = 0.96 of the ball radius)
+  head:
+    init_tau: 0.2           # score = sigmoid(-d(lesion, concept) / tau + b)
+    learn_tau: true
+    per_concept_tau: false  # one temperature per concept instead of one shared
+  loss:
+    w_hierarchy: 1.0        # entailment cones on the concept tree
+    w_image_entail: 0.1     # lesion inside the cones of its concepts (MERU-style)
+    neg_margin: 0.1
+    max_neg: 512
+    transitive_edges: true
+    use_pos_weight: true    # re-weight rare concepts (spiculation, calcification, ...)
+    image_always_entailed_by: [nodule]   # every input is a nodule
+
+optim:
+  lr: 5.0e-3
+  concept_lr: null          # learning rate of the free concept points (null = lr)
+  curvature_lr: null        # learning rate of learned curvatures (null = lr). Adam moves a lone scalar by
+                            # about lr per step whatever its gradient size, so this sets how far κ can travel
+  riemannian_second_moment: coordinate   # coordinate (= Adam for the Euclidean twin) | point (geoopt)
+  weight_decay: 1.0e-4
+  warmup_frac: 0.05         # linear warm-up, then cosine decay, stepped per batch
+
+trainer:
+  max_epochs: 200
+  early_stopping_patience: 30   # epochs without a strict improvement of the selection metric
+  select_metric: val/loss_concept   # best.pt + early stopping. val/loss_concept: concept BCE only;
+                                    # val/auroc_macro (maximised); val/loss: total incl. tree terms (v2)
+  select_from_epoch: 20         # no best.pt / early stopping before this epoch (lets the tree terms act first)
+  eval_train: true              # also score the training split every epoch (train/auroc_macro, overfitting)
+  grad_clip_norm: 1.0
+  device: auto              # auto | cuda | cpu
+  deterministic: true       # deterministic kernels (reproducible runs)
+
+diagnostics:                # run after training on the best checkpoint; results in metrics.json
+  embedding_probe: true     # logistic probe on the learned lesion embedding (tangent coordinates):
+                            # if it beats the distance head, the head loses information; if not, the projection
+  input_probe: true         # same probe on the input features, same split (the ceiling); cached per fold
+  probe_C: 0.1              # L2 strength of both probes (as in hypertrace-zeroshot --probe)

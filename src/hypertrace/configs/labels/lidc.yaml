@@ -1,0 +1,44 @@
+# LIDC-IDRI labels for the v3 lung-nodule ontology.
+#
+# This file says which ontology nodes LIDC can label and how; the tree itself lives in
+# ../ontology/lung_nodule.yaml. Every node not listed here stays in the tree UNSCORED.
+#
+# The 17 scored concepts are the v2 concepts with the same label rules; only some names follow the
+# clinical vocabulary now: texture_* -> type_*, texture -> nodule_type, shape_ovoid -> shape_oval.
+#
+# LIDC reader codes (bucket-default rule: nodules with >= 3 annotations):
+#   texture        1 non-solid/GGO ... 3 part-solid/mixed ... 5 solid
+#   sphericity     1 linear ... 3 ovoid ... 5 round
+#   margin         1 poorly defined ... 5 sharp;  lobulation, spiculation 1 none ... 5 marked
+#   calcification  1 popcorn, 2 laminated, 3 solid, 4 non-central, 5 central, 6 absent
+#   internal structure 1 soft tissue, 2 fluid, 3 fat, 4 air
+#
+# Not scored from LIDC, and why:
+#   solid_component_*      LIDC has no solid-component measurement
+#   calcification patterns too few nodules per pattern with the >= 3-reader rule (6 non-central)
+#   fat_containing, cavitation, atypical cysts: internal-structure codes 2-4 have 0-4 nodules
+#   location (juxtapleural, perifissural, airway, upper lobe): needs the lung / lobe masks
+#   shape_lentiform_triangular: not an LIDC rating
+#
+# Size: diameter_mm is the Part-1 consensus diameter. Lung-RADS uses the mean of the long and
+# short axes; check that the Part-1 definition matches before reporting Lung-RADS categories.
+name: lidc
+ontology: ../ontology/lung_nodule.yaml
+labels:
+  size_lt6: {type: range, column: diameter_mm, high: 6.0}
+  size_6to8: {type: range, column: diameter_mm, low: 6.0, high: 8.0}
+  size_8to15: {type: range, column: diameter_mm, low: 8.0, high: 15.0}
+  size_ge15: {type: range, column: diameter_mm, low: 15.0}
+  type_solid: {type: categorical_readers, attribute: texture, positive_values: [5]}
+  type_subsolid: {type: categorical_readers, attribute: texture, positive_values: [1, 2, 3, 4]}
+  type_part_solid: {type: categorical_readers, attribute: texture, positive_values: [3, 4]}
+  type_ground_glass: {type: categorical_readers, attribute: texture, positive_values: [1, 2]}
+  shape_round: {type: categorical_readers, attribute: sphericity, positive_values: [4, 5]}
+  shape_oval: {type: categorical_readers, attribute: sphericity, positive_values: [3]}
+  shape_linear: {type: categorical_readers, attribute: sphericity, positive_values: [1, 2]}
+  margin_smooth: {type: ordinal_readers, attribute: margin, low: 1, high: 5}
+  margin_irregular: {type: ordinal_readers, attribute: margin, low: 1, high: 5, invert: true}
+  margin_lobulated: {type: ordinal_readers, attribute: lobulation, low: 1, high: 5}
+  margin_spiculated: {type: ordinal_readers, attribute: spiculation, low: 1, high: 5}
+  calcification_present: {type: categorical_readers, attribute: calcification, positive_values: [1, 2, 3, 4, 5]}
+  calcification_absent: {type: categorical_readers, attribute: calcification, positive_values: [6]}

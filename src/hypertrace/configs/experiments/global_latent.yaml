@@ -1,0 +1,12 @@
+# Ablation: no grounding. CT-CLIP's embedding of the whole scan window instead of a nodule readout
+# (uses the whole-scan cache; in a crop cache global_latent would be the crop's embedding).
+base: ../train.yaml
+experiment: nogrounding
+paths:
+  cache_dir: ${HT_CACHE_ROOT:-./cache}/ctclip_scan_dil0
+data:
+  image_feature: global_latent
+  standardize: false
+model:
+  projector:
+    unit_norm_inputs: true

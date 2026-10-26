@@ -1,0 +1,7 @@
+# Ablation: free concept points parameterised as tangent vectors at the origin (exp_0, plain AdamW)
+# instead of points on the ball updated with Riemannian Adam. Same initial points.
+base: ../train.yaml
+experiment: tangent
+model:
+  concepts:
+    param: tangent

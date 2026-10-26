@@ -1,0 +1,22 @@
+Metadata-Version: 2.4
+Name: hypertrace
+Version: 0.1.0
+Summary: HYPER-TRACE Part 2: Poincaré concept bottleneck over a frozen 3D CT encoder
+Requires-Python: >=3.10
+Requires-Dist: torch>=2.1
+Requires-Dist: nibabel>=5.0
+Requires-Dist: numpy>=1.24
+Requires-Dist: pandas>=2.0
+Requires-Dist: scipy>=1.10
+Requires-Dist: scikit-learn>=1.3
+Requires-Dist: pyyaml>=6.0
+Provides-Extra: ctclip
+Requires-Dist: transformers>=4.30; extra == "ctclip"
+Provides-Extra: fmcib
+Requires-Dist: monai>=1.3; extra == "fmcib"
+Provides-Extra: dev
+Requires-Dist: pytest>=7; extra == "dev"
+Requires-Dist: ruff>=0.4; extra == "dev"
+Provides-Extra: viz
+Requires-Dist: matplotlib>=3.7; extra == "viz"
+Requires-Dist: plotly>=5.0; extra == "viz"

@@ -1,0 +1,11 @@
+[console_scripts]
+hypertrace-build-manifest = hypertrace.cli.build_manifest:main
+hypertrace-extract = hypertrace.cli.extract:main
+hypertrace-make-folds = hypertrace.cli.make_folds:main
+hypertrace-radiomics = hypertrace.cli.radiomics:main
+hypertrace-radlex = hypertrace.cli.radlex:main
+hypertrace-summarize = hypertrace.cli.summarize:main
+hypertrace-train = hypertrace.cli.train:main
+hypertrace-tune = hypertrace.cli.tune:main
+hypertrace-visualize = hypertrace.cli.visualize:main
+hypertrace-zeroshot = hypertrace.cli.zeroshot:main

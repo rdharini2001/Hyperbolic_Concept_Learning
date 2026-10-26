@@ -1,0 +1,140 @@
+# LIDC-IDRI nodule concept tree, v2 (17 scored concepts, 26 nodes, depth 6).
+#
+# Order of `nodes` with a `label:` defines the column order of the concept bottleneck.
+# Prompts are short radiology phrases; with a vision-language encoder they are encoded
+# by its text encoder (prompt-ensembled) and can initialise the concept points
+# (model.concepts.init: text). The lesion-level encoder has no text encoder; then the
+# points start from the tree (init: tree).
+#
+# Changes from v1 (configs/concepts/lidc_v1.yaml), to follow the descriptors that drive
+# management (Lung-RADS v2022, Fleischner 2017) and benign/malignant reasoning:
+# - Size: Lung-RADS solid-nodule bins <6, 6-<8, 8-<15, >=15 mm (was one 8 mm placeholder).
+#   Counts on the 1,390 GT nodules: 134 / 378 / 575 / 303.
+# - Nodule type: solid vs subsolid, and subsolid split into part-solid and ground-glass.
+#   `texture_subsolid` is a SCORED INTERNAL node, so parent-child consistency
+#   (P(part-solid) <= P(subsolid)) can be measured. Reader codes (LIDC: 1 non-solid/GGO,
+#   3 part-solid/mixed, 5 solid; 2 and 4 in between): 1-2 ground-glass, 3-4 part-solid
+#   (any solid/ground-glass mix), 5 solid; subsolid = 1-4. Every code maps to one leaf.
+#   Binary-view positives: 1,179 solid, 312 subsolid, 176 part-solid, 101 ground-glass.
+#   (Code 3 alone would leave only 34 part-solid nodules.)
+# - Shape (LIDC sphericity): round (4-5), ovoid (3), linear (1-2). Linear suggests scar or
+#   atelectasis. Only 68 linear nodules: per-fold AUROC for it will be noisy.
+# - Margin: unchanged (margin sharpness, lobulation and spiculation are separate LIDC ratings,
+#   so these four are NOT mutually exclusive).
+# - Calcification: present/absent unchanged. A benign-pattern vs non-central split is not
+#   learnable here (6 nodules with majority non-central). Fat / fluid / air (internal
+#   structure) have 0-4 nodules and are left out.
+# - `exclusive: true` marks groups whose children are mutually exclusive categories. Scores
+#   stay independent sigmoids; the flag is only used by the consistency metric.
+name: lidc_nodule_v2
+nodes:
+  - name: chest
+    parent: null
+    prompts: ["chest CT", "CT of the thorax"]
+  - name: lung
+    parent: chest
+    prompts: ["lung", "pulmonary parenchyma"]
+  - name: pulmonary_lesion
+    parent: lung
+    prompts: ["pulmonary lesion", "lesion in the lung"]
+  - name: nodule
+    parent: pulmonary_lesion
+    prompts: ["pulmonary nodule", "lung nodule"]
+
+  # ---- size (Lung-RADS bins on the consensus diameter from Part 1)
+  - name: size
+    parent: nodule
+    exclusive: true
+    prompts: ["nodule size"]
+  - name: size_lt6
+    parent: size
+    prompts: ["tiny pulmonary nodule smaller than 6 mm"]
+    label: {type: range, column: diameter_mm, high: 6.0}
+  - name: size_6to8
+    parent: size
+    prompts: ["small pulmonary nodule of 6 to 8 mm"]
+    label: {type: range, column: diameter_mm, low: 6.0, high: 8.0}
+  - name: size_8to15
+    parent: size
+    prompts: ["pulmonary nodule of 8 to 15 mm"]
+    label: {type: range, column: diameter_mm, low: 8.0, high: 15.0}
+  - name: size_ge15
+    parent: size
+    prompts: ["large pulmonary nodule of 15 mm or more"]
+    label: {type: range, column: diameter_mm, low: 15.0}
+
+  # ---- shape (LIDC sphericity)
+  - name: shape
+    parent: nodule
+    exclusive: true
+    prompts: ["nodule shape"]
+  - name: shape_round
+    parent: shape
+    prompts: ["round nodule", "spherical pulmonary nodule"]
+    label: {type: categorical_readers, attribute: sphericity, positive_values: [4, 5]}
+  - name: shape_ovoid
+    parent: shape
+    prompts: ["ovoid nodule", "oval pulmonary nodule"]
+    label: {type: categorical_readers, attribute: sphericity, positive_values: [3]}
+  - name: shape_linear
+    parent: shape
+    prompts: ["linear opacity", "elongated linear nodule"]
+    label: {type: categorical_readers, attribute: sphericity, positive_values: [1, 2]}
+
+  # ---- margin (separate LIDC ratings; not mutually exclusive)
+  - name: margin
+    parent: nodule
+    prompts: ["nodule margin", "margin of the nodule"]
+  - name: margin_smooth
+    parent: margin
+    prompts: ["nodule with smooth well-defined margin", "sharply marginated nodule"]
+    label: {type: ordinal_readers, attribute: margin, low: 1, high: 5}
+  - name: margin_irregular
+    parent: margin
+    prompts: ["nodule with irregular poorly defined margin", "ill-defined nodule margin"]
+    label: {type: ordinal_readers, attribute: margin, low: 1, high: 5, invert: true}
+  - name: margin_lobulated
+    parent: margin
+    prompts: ["lobulated nodule", "nodule with lobulated margin"]
+    label: {type: ordinal_readers, attribute: lobulation, low: 1, high: 5}
+  - name: margin_spiculated
+    parent: margin
+    prompts: ["spiculated nodule", "nodule with spiculated margin"]
+    label: {type: ordinal_readers, attribute: spiculation, low: 1, high: 5}
+
+  # ---- nodule type (attenuation)
+  - name: texture
+    parent: nodule
+    exclusive: true
+    prompts: ["nodule attenuation", "nodule type"]
+  - name: texture_solid
+    parent: texture
+    prompts: ["solid pulmonary nodule", "solid nodule"]
+    label: {type: categorical_readers, attribute: texture, positive_values: [5]}
+  - name: texture_subsolid
+    parent: texture
+    exclusive: true
+    prompts: ["subsolid pulmonary nodule"]
+    label: {type: categorical_readers, attribute: texture, positive_values: [1, 2, 3, 4]}
+  - name: texture_part_solid
+    parent: texture_subsolid
+    prompts: ["part-solid nodule", "mixed ground-glass and solid nodule"]
+    label: {type: categorical_readers, attribute: texture, positive_values: [3, 4]}
+  - name: texture_ground_glass
+    parent: texture_subsolid
+    prompts: ["pure ground-glass nodule", "non-solid ground-glass opacity"]
+    label: {type: categorical_readers, attribute: texture, positive_values: [1, 2]}
+
+  # ---- calcification
+  - name: calcification
+    parent: nodule
+    exclusive: true
+    prompts: ["nodule calcification"]
+  - name: calcification_present
+    parent: calcification
+    prompts: ["calcified nodule", "nodule with calcification"]
+    label: {type: categorical_readers, attribute: calcification, positive_values: [1, 2, 3, 4, 5]}
+  - name: calcification_absent
+    parent: calcification
+    prompts: ["non-calcified nodule", "nodule without calcification"]
+    label: {type: categorical_readers, attribute: calcification, positive_values: [6]}

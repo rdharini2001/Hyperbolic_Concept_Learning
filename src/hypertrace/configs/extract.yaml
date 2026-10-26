@@ -1,0 +1,67 @@
+# hypertrace-extract --config <this file> [--set key=value ...]
+#
+# Runs the frozen VLM over the bucket scans once and caches one lesion readout per
+# nodule plus the concept-prompt text latents. SLURM array tasks shard by scan.
+
+paths:
+  bucket_root: ${HT_BUCKET:-./bucket}                      # local copy of Dharini24/LIDC-IDRI-bucket
+  manifest: ${HT_DATA_ROOT:-./data}/manifest_folds.csv
+  cache_root: ${HT_CACHE_ROOT:-./cache}
+
+concepts_file: labels/lidc.yaml
+
+encoder:
+  name: ctclip                    # ctclip | fmcib (lesion-level) | fake / fake_lesion (tiny random stand-ins)
+  ctclip:
+    target_spacing_mm: [1.5, 0.75, 0.75]   # (z, y, x) CT-CLIP training spacing; verify against your checkout
+    checkpoint: ${HT_CTCLIP_CKPT:-}         # path to the CT-CLIP .pt file
+    text_model: ${HT_CXR_BERT:-microsoft/BiomedVLP-CXR-BERT-specialized}
+    input_shape: [240, 480, 480]            # (D, H, W)
+    patch_size: [10, 20, 20]                # -> 24 x 24 x 24 tokens
+    token_dim: 512
+    latent_dim: 512
+  fmcib:                          # Pai et al. 2024; cache -> <cache_root>/fmcib_lesion
+    checkpoint: ${HT_FMCIB_CKPT:-}
+    target_spacing_mm: [1.0, 1.0, 1.0]
+    crop_size: [50, 50, 50]       # voxels (z, y, x) = 50 mm cube around the mask's centre of mass
+    flip_axes: [1, 2]             # our RAS (z, y, x) -> FMCIB's LPS (z, y, x)
+    hu_window: [-1024.0, 3071.0]  # (HU + 1024) / 3072, as in fmcib.preprocessing
+    hu_scale: 3072.0
+    hu_shift: -1024.0
+    feature_dim: 4096
+  fake_lesion:
+    target_spacing_mm: [2.0, 2.0, 2.0]
+    crop_size: [16, 16, 16]
+    hu_window: [-1024.0, 3071.0]
+    hu_scale: 3072.0
+    hu_shift: -1024.0
+  fake:
+    target_spacing_mm: [2.0, 1.0, 1.0]
+    input_shape: [32, 64, 64]
+    patch_size: [4, 8, 8]
+    token_dim: 32
+    latent_dim: 64
+
+# scan: whole scan at CT-CLIP spacing in CT-CLIP's canvas (in-distribution; default)
+# crop: cube of crop_size_mm around the nodule, zoomed to the canvas (nodule spans many tokens)
+# (lesion encoders ignore input_mode / crop_size_mm / dilate_tokens: they use their own cube)
+input_mode: scan
+crop_size_mm: 96
+dilate_tokens: 0                  # grow the nodule token region by k tokens
+
+# Bucket images are raw int16 HU at native spacing; normalisation happens here.
+hu_already_normalized: false
+check_intensity: true             # fail if the CT range contradicts hu_already_normalized
+hu_window: [-1000.0, 1000.0]     # (clip(HU) - hu_shift) / hu_scale; encoders may override (see fmcib)
+hu_scale: 1000.0
+hu_shift: 0.0
+label_size_tolerance: 0.05        # instance-mask voxels vs nodules.csv consensus_voxels
+
+cache_dir: null                   # null = <cache_root>/<encoder>_<input_mode>_dil<dilate_tokens> (lesion: <encoder>_lesion)
+only_text: false                  # true = re-encode concept prompts only (after editing the tree)
+limit_scans: null                 # e.g. 3: encode only the first N scans of this shard (smoke / memory check)
+shard_id: ${SLURM_ARRAY_TASK_ID:-0}
+num_shards: ${SLURM_ARRAY_TASK_COUNT:-1}
+device: auto
+amp: true                         # bf16 autocast for the frozen encoder on GPU
+text_batch_size: 16

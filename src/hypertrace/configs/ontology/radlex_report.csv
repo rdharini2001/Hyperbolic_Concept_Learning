@@ -1,0 +1,42 @@
+node,terms,decision,why,current,candidates
+chest,chest | thorax,RID1243,unique preferred match,,RID1243 | thorax | synonym ; RID1243 | thorax | preferred
+lung,lung,RID1301,unique preferred match,,RID1301 | lung | preferred
+pulmonary_lesion,lesion of lung | lung lesion,,no exact match,,
+nodule,pulmonary nodule | nodule,,ambiguous: 2 RIDs on preferred labels,,RID50149 | pulmonary nodule | preferred ; RID3875 | nodule | preferred ; RID34301 | focus | synonym ; RID38780 | lesion | synonym
+size,size,RID13432,unique synonym match,,RID13432 | diameter | synonym
+nodule_type,attenuation | density,,ambiguous: 2 RIDs on preferred labels,,RID28662 | attenuation | preferred ; RID39166 | density | preferred
+type_solid,solid nodule | solid,RID5741,unique preferred match,,RID5741 | solid | preferred
+type_subsolid,subsolid nodule | subsolid,,no exact match,,
+type_part_solid,part-solid nodule | part solid nodule | mixed attenuation nodule,,no exact match,,
+solid_component,solid component,,no exact match,,
+type_ground_glass,ground-glass nodule | ground glass nodule | nonsolid nodule | ground-glass opacity,RID28531,unique preferred match,,RID28531 | ground-glass opacity | preferred ; RID28531 | ground-glass opacity | synonym
+shape,shape,RID5863,unique synonym match,,RID5863 | morphologic descriptor | synonym
+shape_round,round | spherical,RID5799,unique preferred match,,RID5799 | round | preferred ; RID5799 | round | synonym
+shape_oval,oval | ovoid,RID5800,unique preferred match,,RID5800 | oval | preferred
+shape_lentiform_triangular,lentiform | triangular,,no exact match,,
+shape_linear,linear,RID5811,unique preferred match,,RID5811 | linear | preferred
+margin,margin,RID5972,unique preferred match,,RID5972 | margin | preferred
+margin_smooth,smooth margin | circumscribed margin | well-defined margin,,ambiguous: 2 RIDs on preferred labels,,RID5714 | smooth margin | preferred ; RID5707 | circumscribed margin | preferred ; RID5707 | circumscribed margin | synonym
+margin_irregular,irregular margin | ill-defined margin,RID5715,unique preferred match,,RID5715 | irregular margin | preferred ; RID5709 | indistinct margin | synonym
+margin_lobulated,lobulated margin | lobulated,RID5711,unique preferred match,,RID5711 | lobulated margin | preferred ; RID5801 | lobular | synonym
+margin_spiculated,spiculated margin | spiculated | spiculation,,ambiguous: 2 RIDs on preferred labels,,RID5713 | spiculated margin | preferred ; RID34284 | spiculated | preferred ; RID5809 | irregular | synonym
+calcification,calcification,RID5196,unique preferred match,,RID5196 | calcification | preferred
+calcification_present,calcified,RID5747,unique preferred match,,RID5747 | calcified | preferred
+calcification_benign_pattern,benign calcification,,no exact match,,
+calcification_complete,diffuse calcification | complete calcification,,no exact match,,
+calcification_central,central calcification,,no exact match,,
+calcification_concentric,laminated calcification | concentric calcification,,no exact match,,
+calcification_popcorn,popcorn calcification,RID29213,unique synonym match,,RID29213 | coarse calcification | synonym
+calcification_eccentric,eccentric calcification | stippled calcification,,no exact match,,
+calcification_absent,noncalcified | non-calcified,RID39226,unique preferred match,,RID39226 | noncalcified | preferred ; RID39226 | noncalcified | synonym
+internal_features,internal characteristics,,no exact match,,
+fat_containing,fat-containing | fat,,ambiguous: 2 RIDs on preferred labels,,RID5749 | fat-containing | preferred ; RID5749 | fat-containing | synonym ; RID1538 | fat | preferred
+cavitation,cavitation | cavity,,no exact match,,
+atypical_cyst,cyst | lung cyst,RID3890,unique preferred match,,RID3890 | cyst | preferred
+cyst_thick_walled,thick-walled,,no exact match,,
+cyst_multilocular,multilocular,RID5891,unique preferred match,,RID5891 | multilocular | preferred
+location,location,RID39038,unique preferred match,,RID39038 | location | preferred
+juxtapleural,juxtapleural,,no exact match,,
+perifissural,perifissural nodule | perifissural,,no exact match,,
+airway_nodule,endobronchial | airway nodule,,no exact match,,
+upper_lobe,upper lobe of lung | upper lobe,RID34695,unique preferred match,,RID34695 | upper lobe of lung | preferred

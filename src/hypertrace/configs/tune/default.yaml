@@ -1,0 +1,17 @@
+# Search space for hypertrace-tune (training-fix patch).
+#
+# Every geometry gets the SAME trials (same settings, same order, same folds and seeds), so the
+# Euclidean and Poincaré arms have an equal tuning budget. Trial 0 is always the base config
+# unchanged. Keys are hypertrace-train config keys (dotted); values are YAML scalars.
+name: wd_drop             # run-name tag prefix: trial 3 -> tag=wd_drop03
+sample: random            # random: n_trials draws from the full grid (fixed seed) | grid: every combination
+n_trials: 16              # including trial 0 (the base config)
+seed: 0
+params:
+  optim.weight_decay: [1.0e-4, 1.0e-3, 1.0e-2, 1.0e-1]
+  model.projector.input_dropout: [0.0, 0.2, 0.5]
+  data.pca_dim: [null, 256]
+  optim.lr: [5.0e-3, 1.0e-3]
+  optim.concept_lr: [null, 2.0e-2]
+  model.loss.w_hierarchy: [1.0, 0.3, 0.1]
+  model.head.per_concept_tau: [false, true]

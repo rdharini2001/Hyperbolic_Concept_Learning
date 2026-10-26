@@ -1,0 +1,68 @@
+# Column map: Dharini24/LIDC-IDRI-bucket -> Part-2 manifest.
+# Verified against the bucket CSVs (annotations 6,859 rows, nodules 2,651, scans 1,018) on 2026-10-13.
+#
+# Ratings come from the *_term columns, NOT *_score. The *_score columns are
+# empty whenever the SR coded a named concept instead of "N out of 5":
+#   margin      47% empty (every "Circumscribed" = 5 and "Indistinct" = 1)
+#   texture     86% empty (every solid / part-solid / non-solid)
+#   sphericity  58% empty (round / ovoid / linear)
+#   calcification, internal_structure: 100% empty (categorical)
+# Using *_score would silently drop the extreme categories. The adapter
+# cross-checks parsed terms against *_score wherever a score exists.
+
+annotations:
+  file: annotations.csv
+  nodule_key: [case_id, nodule_id]
+  reader_order: annotation_idx        # 1..n per nodule (contiguous in this release)
+  # Part-2 attribute -> column holding the SR term.
+  characteristics:
+    subtlety: subtlety_term
+    internal_structure: internal_structure_term
+    calcification: calcification_term
+    sphericity: sphericity_term
+    margin: margin_term
+    lobulation: lobulation_term
+    spiculation: spiculation_term
+    texture: texture_term
+    malignancy: malignancy_term
+  # Optional numeric column per attribute, used only to cross-check the parsed term.
+  check_scores:
+    subtlety: subtlety_score
+    sphericity: sphericity_score
+    margin: margin_score
+    lobulation: lobulation_score
+    spiculation: spiculation_score
+    texture: texture_score
+    malignancy: malignancy_score
+  # Named SR terms -> LIDC integer codes (LIDC XML / pylidc scales).
+  # "N out of 5 (...)" terms are parsed from their leading integer. Unknown terms raise an error.
+  value_maps:
+    margin: {"Indistinct margin": 1, "Circumscribed margin": 5}          # 1 poorly defined ... 5 sharp
+    texture: {"non-solid pulmonary nodule": 1, "part-solid pulmonary nodule": 3, "solid pulmonary nodule": 5}
+    sphericity: {"linear": 1, "ovoid": 3, "round": 5}
+    calcification: {"Popcorn calcification sign": 1, "Laminated appearance": 2, "Solid appearance": 3,
+                    "Non-central appearance": 4, "Central calcification": 5, "Absent": 6}
+    internal_structure: {"Soft tissue": 1, "Fluid": 2, "Adipose tissue": 3, "Air": 4}
+
+nodules:
+  file: nodules.csv
+  nodule_key: [case_id, nodule_id]
+  instance_label: nodule_id     # value of this nodule in masks_instance/<case>.nii.gz (checked at extraction)
+  carry: [patient_id, n_annotations, in_default_gt, diameter_mm, volume_mm3, consensus_voxels,
+          centroid_z, centroid_y, centroid_x, tracking_uid]
+
+scans:
+  file: scans.csv
+  case_id: case_id
+  carry: [spacing_z, spacing_y, spacing_x, z_gap_min, z_gap_max, n_slices, manufacturer,
+          in_luna16, luna16_subset]
+
+paths:   # relative to the bucket root (same layout as train.jsonl)
+  image: "images/{case_id}.nii.gz"
+  instance_mask: "masks_instance/{case_id}.nii.gz"
+
+filters:
+  default_gt_only: true         # bucket default: nodules with >= 3 annotations (in_default_gt)
+  # Irregular slice gaps break the single NIfTI affine (slices land at wrong z after resampling).
+  # 6 scans in this release, 2 default-GT nodules.
+  max_z_gap_spread_mm: 0.1

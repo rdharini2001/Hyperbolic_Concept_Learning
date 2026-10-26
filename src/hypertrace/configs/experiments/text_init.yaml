@@ -1,0 +1,7 @@
+# Ablation: free concept points initialised from the CT-CLIP prompt embeddings (principal
+# directions of the centred prompt embeddings) instead of from the tree. Needs text.pt.
+base: ../train.yaml
+experiment: textinit
+model:
+  concepts:
+    init: text

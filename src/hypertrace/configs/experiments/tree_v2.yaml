@@ -1,0 +1,6 @@
+# The v2 concept tree (26 nodes, 17 scored, labels inside the tree file), for comparison with
+# runs made before the v3 ontology. Same 17 scored concepts and label rules as v3; v3 adds 24
+# unscored nodes and renames texture_* -> type_*, shape_ovoid -> shape_oval.
+base: ../train.yaml
+experiment: treev2
+concepts_file: ../concepts/lidc.yaml   # relative to this file

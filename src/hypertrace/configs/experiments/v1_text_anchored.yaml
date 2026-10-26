@@ -1,0 +1,18 @@
+# The first real-data setup (Oct 2026), kept to reproduce those runs: CT-CLIP whole-scan cache,
+# masked_latent, concepts = frozen prompt embeddings through the image map (text-anchored),
+# 10-concept v1 tree. On real CT-CLIP features all concepts collapsed to almost one point and
+# concept AUROC was at chance (docs/IMPLEMENTATION.md, "Lessons from the first real runs").
+base: ../train.yaml
+experiment: v1
+concepts_file: ../concepts/lidc_v1.yaml   # relative to this file
+paths:
+  cache_dir: ${HT_CACHE_ROOT:-./cache}/ctclip_scan_dil0
+data:
+  image_feature: masked_latent
+  standardize: false
+model:
+  projector:
+    share_projection: true
+    unit_norm_inputs: true
+  concepts:
+    mode: text

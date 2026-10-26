@@ -1,0 +1,9 @@
+# Lesion-level encoder: FMCIB (Pai et al., Nat Mach Intell 2024), 4096-d embedding of a
+# 50 mm cube around the nodule. Cache built with:  hypertrace-extract --set encoder.name=fmcib
+# No text encoder, so concepts are free points initialised from the tree.
+base: ../train.yaml
+experiment: fmcib
+paths:
+  cache_dir: ${HT_CACHE_ROOT:-./cache}/fmcib_lesion
+data:
+  image_feature: lesion_embedding

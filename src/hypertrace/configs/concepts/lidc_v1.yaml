@@ -1,0 +1,89 @@
+# LIDC-IDRI nodule concept tree, v1 (10 concepts; first real runs). Superseded by lidc.yaml (v2).
+#
+# Order of `nodes` with a `label:` defines the column order of the concept
+# bottleneck. Prompts are short radiology phrases encoded by the CT-CLIP text
+# encoder; several prompts per node are averaged (prompt ensembling).
+#
+# Design notes:
+# - Margin children are NOT mutually exclusive (LIDC scores spiculation,
+#   lobulation and margin sharpness separately).
+# - "smooth" / "irregular" come from the LIDC `margin` (sharpness) score;
+#   "spiculated" / "lobulated" from their own scores.
+# - Size uses `diameter_mm` from the manifest (Part 1). 8 mm is a placeholder
+#   cut-off; change it to the Lung-RADS boundary you want to report against.
+# - Texture: LIDC 1 = non-solid, 3 = part-solid, 5 = solid. "solid" is the
+#   rescaled score; "subsolid" is its inverse.
+name: lidc_nodule_v1
+nodes:
+  - name: chest
+    parent: null
+    prompts: ["chest CT", "CT of the thorax"]
+  - name: lung
+    parent: chest
+    prompts: ["lung", "pulmonary parenchyma"]
+  - name: pulmonary_lesion
+    parent: lung
+    prompts: ["pulmonary lesion", "lesion in the lung"]
+  - name: nodule
+    parent: pulmonary_lesion
+    prompts: ["pulmonary nodule", "lung nodule"]
+
+  # ---- size
+  - name: size
+    parent: nodule
+    prompts: ["nodule size"]
+  - name: size_large
+    parent: size
+    prompts: ["large pulmonary nodule", "nodule measuring more than 8 mm"]
+    label: {type: threshold, column: diameter_mm, threshold: 8.0}
+  - name: size_small
+    parent: size
+    prompts: ["small pulmonary nodule", "nodule measuring less than 8 mm"]
+    label: {type: threshold, column: diameter_mm, threshold: 8.0, invert: true}
+
+  # ---- margin
+  - name: margin
+    parent: nodule
+    prompts: ["nodule margin", "margin of the nodule"]
+  - name: margin_smooth
+    parent: margin
+    prompts: ["nodule with smooth well-defined margin", "sharply marginated nodule"]
+    label: {type: ordinal_readers, attribute: margin, low: 1, high: 5}
+  - name: margin_irregular
+    parent: margin
+    prompts: ["nodule with irregular poorly defined margin", "ill-defined nodule margin"]
+    label: {type: ordinal_readers, attribute: margin, low: 1, high: 5, invert: true}
+  - name: margin_lobulated
+    parent: margin
+    prompts: ["lobulated nodule", "nodule with lobulated margin"]
+    label: {type: ordinal_readers, attribute: lobulation, low: 1, high: 5}
+  - name: margin_spiculated
+    parent: margin
+    prompts: ["spiculated nodule", "nodule with spiculated margin"]
+    label: {type: ordinal_readers, attribute: spiculation, low: 1, high: 5}
+
+  # ---- texture
+  - name: texture
+    parent: nodule
+    prompts: ["nodule attenuation", "nodule texture"]
+  - name: texture_solid
+    parent: texture
+    prompts: ["solid pulmonary nodule", "solid nodule"]
+    label: {type: ordinal_readers, attribute: texture, low: 1, high: 5}
+  - name: texture_subsolid
+    parent: texture
+    prompts: ["ground-glass nodule", "part-solid or subsolid nodule"]
+    label: {type: ordinal_readers, attribute: texture, low: 1, high: 5, invert: true}
+
+  # ---- calcification
+  - name: calcification
+    parent: nodule
+    prompts: ["nodule calcification"]
+  - name: calcification_present
+    parent: calcification
+    prompts: ["calcified nodule", "nodule with calcification"]
+    label: {type: categorical_readers, attribute: calcification, positive_values: [1, 2, 3, 4, 5]}
+  - name: calcification_absent
+    parent: calcification
+    prompts: ["non-calcified nodule", "nodule without calcification"]
+    label: {type: categorical_readers, attribute: calcification, positive_values: [6]}
