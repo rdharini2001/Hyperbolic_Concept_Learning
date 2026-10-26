@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hypertrace"
+version = "0.1.0"
+description = "HYPER-TRACE Part 2: Poincaré concept bottleneck over a frozen 3D CT encoder"
+requires-python = ">=3.10"
+dependencies = [
+  "torch>=2.1",
+  "nibabel>=5.0",
+  "numpy>=1.24",
+  "pandas>=2.0",
+  "scipy>=1.10",
+  "scikit-learn>=1.3",
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+ctclip = ["transformers>=4.30"]   # plus CT-CLIP itself, installed from its repo (see README)
+fmcib = ["monai>=1.3"]            # FMCIB lesion encoder (MONAI ResNet-50); weights from Zenodo
+dev = ["pytest>=7", "ruff>=0.4"]
+viz = ["matplotlib>=3.7", "plotly>=5.0"]
+
+[project.scripts]
+hypertrace-extract = "hypertrace.cli.extract:main"
+hypertrace-train = "hypertrace.cli.train:main"
+hypertrace-make-folds = "hypertrace.cli.make_folds:main"
+hypertrace-zeroshot = "hypertrace.cli.zeroshot:main"
+hypertrace-summarize = "hypertrace.cli.summarize:main"
+hypertrace-build-manifest = "hypertrace.cli.build_manifest:main"
+hypertrace-visualize = "hypertrace.cli.visualize:main"
+hypertrace-radiomics = "hypertrace.cli.radiomics:main"
+hypertrace-tune = "hypertrace.cli.tune:main"
+hypertrace-radlex = "hypertrace.cli.radlex:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+hypertrace = ["configs/*.yaml", "configs/**/*.yaml"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["B008"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
